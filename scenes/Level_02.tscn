@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://6gwxcdkmxv7x"]
+
+[ext_resource type="TileSet" uid="uid://ddy60s8jpxv4g" path="res://assets/tileset.tres" id="1_0a68r"]
+
+[node name="Level_01" type="Node2D" unique_id=1626915911]
+
+[node name="WallsMap" type="TileMapLayer" parent="." unique_id=1676476763]
+position = Vector2(320, 156)
+tile_set = ExtResource("1_0a68r")

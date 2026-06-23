@@ -3,11 +3,36 @@ extends Node2D
 @onready var day_view: CanvasItem = $DayView
 @onready var night_view: CanvasItem = $NightView
 
+@export var level_scene: PackedScene
+
 func _ready() -> void:
-	if has_node("WallsMap"):
-		var tm = $WallsMap
-		if tm.has_method("get_used_cells") and tm.get_used_cells().size() > 0:
+	RoomData.clear_room()
+	
+	# 动态加载关卡 (如果有配置，则加载配置好的；否则默认加载 Level_01)
+	if level_scene == null:
+		level_scene = load("res://scenes/Level_01.tscn")
+		
+	if level_scene:
+		var level = level_scene.instantiate()
+		add_child(level)
+		# 将其移动到最底层，在 View 之下
+		move_child(level, 0)
+		
+		# 给节点一点时间 _ready() 并注册自己
+		await get_tree().process_frame
+		
+		var tm = level.get_node_or_null("WallsMap")
+		if tm != null:
 			RoomData.sync_with_tilemap(tm)
+			tm.visible = false # 默认白天隐藏，由代码画 wall 单词
+			day_view.queue_redraw()
+			night_view.queue_redraw()
+			
+		# 更新玩家的初始位置（等待 PlayerSpawn 注册完成）
+		var player = $Player
+		if player:
+			GameState.player_cell = RoomData.player_start
+			player._snap(RoomData.player_start)
 			
 	GameState.phase_changed.connect(_on_phase)
 	GameState.win_event.connect(func(): queue_redraw())
@@ -17,13 +42,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept"):   # 空格/回车切昼夜
 		GameState.toggle_phase()
 
-func _on_phase(p) -> void:
+func _on_phase(p: GameState.Phase) -> void:
 	_apply_phase(p)
-	queue_redraw()
 
-func _apply_phase(p) -> void:
-	day_view.visible = (p == GameState.Phase.DAY)
-	night_view.visible = (p == GameState.Phase.NIGHT)
+func _apply_phase(p: GameState.Phase) -> void:
+	if p == GameState.Phase.DAY:
+		day_view.visible = true
+		night_view.visible = false
+	else:
+		day_view.visible = false
+		night_view.visible = true
+		
+	# 切换 TileMap 的可见性（如果存在）
+	var level = get_child(0)
+	if level:
+		var tm = level.get_node_or_null("WallsMap")
+		if tm != null:
+			tm.visible = (p == GameState.Phase.NIGHT)
+			
+	queue_redraw()
 
 func _draw() -> void:
 	var font = ThemeDB.fallback_font
